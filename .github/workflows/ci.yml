@@ -22,8 +22,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - uses: DeterminateSystems/determinate-nix-action@v3.17.0
+      - uses: DeterminateSystems/flakehub-cache-action@v3.17.0
 
       - name: Build mutmut
         run: nix build .#packages.${{ matrix.system }}.mutmut -L
