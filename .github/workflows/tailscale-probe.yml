@@ -1,0 +1,61 @@
+name: Tailscale Probe
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  probe-abraxas:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.head_ref == 'test-macos-15-cache' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Join tailnet
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          version: latest
+          ping: abraxas.quetzal-celsius.ts.net
+
+      - name: Show Tailscale status
+        run: tailscale status
+
+      - name: Probe route to abraxas
+        id: route
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          tailscale ping --verbose --c 10 --until-direct=false abraxas.quetzal-celsius.ts.net | tee ping.log
+
+      - name: Probe SSH port on abraxas
+        id: tcp
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 5 bash -lc 'cat < /dev/null > /dev/tcp/abraxas.quetzal-celsius.ts.net/22'
+
+      - name: Summarize probe
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "## Tailscale Probe"
+            echo
+            echo "- Host: \`abraxas.quetzal-celsius.ts.net\`"
+            echo "- Route probe: \`${{ steps.route.outcome }}\`"
+            echo "- TCP/22 probe: \`${{ steps.tcp.outcome }}\`"
+            echo
+            if [ -f ping.log ]; then
+              echo "### Ping Log"
+              echo
+              echo '```text'
+              sed -n '1,80p' ping.log
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if probes did not pass
+        if: ${{ steps.route.outcome != 'success' || steps.tcp.outcome != 'success' }}
+        run: exit 1
