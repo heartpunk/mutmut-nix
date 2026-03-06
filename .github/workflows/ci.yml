@@ -12,10 +12,13 @@ jobs:
         include:
           - os: ubuntu-latest
             system: x86_64-linux
+            use_cache: true
           - os: ubuntu-24.04-arm
             system: aarch64-linux
+            use_cache: true
           - os: macos-14
             system: aarch64-darwin
+            use_cache: false
     runs-on: ${{ matrix.os }}
     permissions:
       id-token: write
@@ -23,7 +26,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/determinate-nix-action@v3.17.0
+      # Skip cache setup on macOS 14 because magic-nix-cache hangs there.
       - uses: DeterminateSystems/flakehub-cache-action@v3.17.0
+        if: ${{ matrix.use_cache }}
 
       - name: Build mutmut
         run: nix build .#packages.${{ matrix.system }}.mutmut -L
